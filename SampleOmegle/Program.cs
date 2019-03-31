@@ -11,34 +11,69 @@ namespace SampleOmegle
     class Program
     {
         public static Omegle OmegleObj = new Omegle();
-        static void Main(string[] args)
+        public static bool recon = true;
+        public static void Main(string[] args)
         {
             OmegleObj.Connected += new EventHandler(omegle_Connected);
             //OmegleObj.CaptchaRefused += new EventHandler(omegle_CaptchaRefused);
             //OmegleObj.CaptchaRequired += new CaptchaRequiredEvent(omegle_CaptchaRequired);
+            OmegleObj.Interests.Add("memes");
             OmegleObj.MessageReceived += new MessageReceivedEvent(omegle_MessageReceived);
             OmegleObj.StrangerDisconnected += new EventHandler(omegle_StrangerDisconnected);
             OmegleObj.StrangerTyping += new EventHandler(omegle_StrangerTyping);
             OmegleObj.StrangerStoppedTyping += new EventHandler(omegle_StrangerStoppedTyping);
             OmegleObj.WaitingForPartner += new EventHandler(omegle_WaitingForPartner);
 
+            var t = new System.Threading.Thread(meanwhile);
+            t.Start();
+
             OmegleObj.Connect();
-            
-            Console.ReadLine();
         }
 
-
+        private static void meanwhile()
+        {
+            var sb = new StringBuilder();
+            while (true)
+            {
+                var k = Console.ReadKey(true);
+                if (!recon)
+                {
+                    recon = true;
+                    continue;
+                }
+                var c = k.Key.ToString();
+                if ((k.Modifiers & ConsoleModifiers.Shift) != ConsoleModifiers.Shift)
+                    c = c.ToLower();
+                if (c.Length == 1)
+                    sb.Append(c);
+                if (c == "backspace" && sb.Length > 0)
+                    sb.Remove(sb.Length - 1, 1);
+                if (c == "spacebar")
+                    sb.Append(" ");
+                if (c == "enter")
+                {
+                    OmegleObj.SendMessage(sb.ToString());
+                    Console.WriteLine("You: " + sb.ToString());
+                    sb.Clear();
+                }
+                Console.Title = sb.ToString() + " [" + c + "]";
+            }
+        }
 
         private static void omegle_WaitingForPartner(object sender, EventArgs e)
         {
-            Console.WriteLine("Still waiting to find a partner.");
+            Console.WriteLine("SEARCHING.");
         }
 
         private static void omegle_StrangerDisconnected(object sender, EventArgs e)
         {
-            Console.WriteLine("Stranger disconnected, going to reconnect.");
-            OmegleObj.Reconnect(); //be careful with this, omegle bans you eventually if you keep isntantly reconnecting
-            //then you have to enter annoying captchas
+            Console.WriteLine("DISCONNECTED. Press any key to reconnect.");
+            recon = false;
+            do
+                System.Threading.Thread.Sleep(100);
+            while (!recon);
+            Console.WriteLine("RECONNECTING.");
+            OmegleObj.Reconnect();
         }
 
         private static void omegle_StrangerTyping(object sender, EventArgs e)
@@ -53,16 +88,17 @@ namespace SampleOmegle
 
         private static void omegle_MessageReceived(object sender, MessageReceivedArgs e)
         {
-            Console.WriteLine("Stranger: " + e.message); //we received a message, lets echo it back
-            OmegleObj.SendMessage(e.message + " to you too, buddy.");
-            Console.WriteLine("You: " + e.message + " to you too, buddy.");
+            Console.WriteLine("Stranger: " + e.message);
         }
 
         private static void omegle_Connected(object sender, EventArgs e)
         {
-            Console.WriteLine("Connected to someone.");
+            Console.WriteLine("CONNECTED.");
         }
 
-
+        ~Program()
+        {
+            OmegleObj.SendDisconnect();
+        }
     }
 }
